@@ -1,0 +1,20 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <!-- Configuração do conjunto de caracteres -->
+    <meta charset="UTF-8">
+    <!-- Configuração para responsividade -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Título da página -->
+    <title>Gerenciador de Tarefas</title>
+    <!-- Inclusão do Tailwind CSS para estilização -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inclusão do Alpine.js para reatividade -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/alpinejs/3.13.3/cdn.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Bloco para o conteúdo da página que será definido em outros templates -->
+    {% block content %}{% endblock %}
+</body>
+</html>

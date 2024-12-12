@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-indigo-900 to-purple-800 py-12" x-data="{ 
+    showAddModal: false,
+    showEditModal: false,
+    showDeleteModal: false,
+    currentTask: null,
+    async editTask(id) {
+        const response = await fetch(`/task/${id}`);
+        this.currentTask = await response.json();
+        this.showEditModal = true;
+    },
+    async deleteTask(id) {
+        this.currentTask = { id };
+        this.showDeleteModal = true;
+    },
+    async confirmDelete() {
+        try {
+            const response = await fetch(`/delete_task/${this.currentTask.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                console.error('Erro ao deletar tarefa');
+            }
+        } catch (error) {
+            console.error('Erro:', error);
+        }
+        this.showDeleteModal = false;
+    }
+}">
+    <div class="container mx-auto px-4 max-w-5xl">
+        <h1 class="text-5xl font-bold text-center mb-12 text-white tracking-tight">Gerenciador de Tarefas</h1>
+        
+        <!-- Dashboard de Estatísticas -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white/95 backdrop-blur p-4 rounded-2xl shadow-lg border border-indigo-100">
+                <h3 class="text-sm font-medium text-gray-500 mb-1">Total de Tarefas</h3>
+                <p class="text-2xl font-bold text-gray-900">{{ stats.total }}</p>
+            </div>
+            <div class="bg-white/95 backdrop-blur p-4 rounded-2xl shadow-lg border border-indigo-100">
+                <h3 class="text-sm font-medium text-gray-500 mb-1">Tarefas Pendentes</h3>
+                <p class="text-2xl font-bold text-orange-600">{{ stats.pending }}</p>
+            </div>
+            <div class="bg-white/95 backdrop-blur p-4 rounded-2xl shadow-lg border border-indigo-100">
+                <h3 class="text-sm font-medium text-gray-500 mb-1">Tarefas Concluídas</h3>
+                <p class="text-2xl font-bold text-green-600">{{ stats.completed }}</p>
+            </div>
+            <div class="bg-white/95 backdrop-blur p-4 rounded-2xl shadow-lg border border-indigo-100">
+                <h3 class="text-sm font-medium text-gray-500 mb-1">Tarefas Urgentes</h3>
+                <p class="text-2xl font-bold text-red-600">{{ stats.urgent }}</p>
+            </div>
+        </div>
+
+        <!-- Filtros e Busca -->
+        <div class="mb-8 bg-white/95 backdrop-blur p-6 rounded-2xl shadow-xl border border-indigo-100">
+            <form method="GET" class="space-y-4" x-data="{ 
+                clearFilters() {
+                    const inputs = this.$el.querySelectorAll('input, select');
+                    inputs.forEach(input => input.value = '');
+                    this.$el.submit();
+                }
+            }">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Input de busca -->
+                    <div class="relative">
+                        <input type="text" 
+                               name="search" 
+                               placeholder="Buscar tarefas..." 
+                               value="{{ request.args.get('search', '') }}"
+                               class="w-full p-3 pl-10 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80">
+                        <svg class="w-5 h-5 text-gray-400 absolute left-3 top-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                        </svg>
+                    </div>
+                    
+                    <select name="category" 
+                            class="p-3 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80">
+                        <option value="">Todas as Categorias</option>
+                        {% for category in categories %}
+                        <option value="{{ category }}" 
+                                {% if request.args.get('category') == category %}selected{% endif %}>
+                            {{ category }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <select name="priority" 
+                            class="p-3 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80">
+                        <option value="">Todas as Prioridades</option>
+                        {% for priority in priorities %}
+                        <option value="{{ priority }}"
+                                {% if request.args.get('priority') == priority %}selected{% endif %}>
+                            {{ priority }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <select name="status" 
+                            class="p-3 border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white/80">
+                        <option value="">Todos os Status</option>
+                        <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>
+                            Pendentes
+                        </option>
+                        <option value="completed" {% if request.args.get('status') == 'completed' %}selected{% endif %}>
+                            Concluídas
+                        </option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" 
+                            @click="clearFilters"
+                            class="px-6 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 font-medium text-gray-600">
+                        Limpar Filtros
+                    </button>
+                    <button type="submit" 
+                            class="bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-colors font-medium">
+                        Filtrar
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Botão Adicionar Tarefa -->
+        <div class="mb-8">
+            <button @click="showAddModal = true" 
+                    class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-3 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all font-medium flex items-center gap-2">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                </svg>
+                Nova Tarefa
+            </button>
+        </div>
+        
+        <!-- Lista de tarefas -->
+        <div class="space-y-4">
+            {% for task in tasks %}
+            <div class="group flex items-center justify-between bg-white/95 backdrop-blur p-5 rounded-2xl shadow-lg border border-indigo-100 hover:border-indigo-400 transition-all transform hover:scale-[1.01]">
+                <div class="flex items-center gap-4 flex-1">
+                    <button @click="fetch('{{ url_for('main.complete_task', id=task.id) }}').then(() => window.location.reload())"
+                            class="w-7 h-7 border-2 rounded-full flex items-center justify-center transition-colors
+                                  {% if task.completed %}bg-indigo-600 border-indigo-600
+                                  {% else %}border-indigo-300 hover:border-indigo-600{% endif %}">
+                        {% if task.completed %}
+                        <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        {% endif %}
+                    </button>
+                    <div class="flex-1">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <span class="font-medium {% if task.completed %}line-through text-gray-400{% else %}text-gray-800{% endif %}">
+                                {{ task.title }}
+                            </span>
+                            <span class="text-sm px-3 py-1 rounded-full font-medium
+                                       {% if task.priority == 'Urgente' %}bg-red-100 text-red-700
+                                       {% elif task.priority == 'Alta' %}bg-orange-100 text-orange-700
+                                       {% elif task.priority == 'Média' %}bg-yellow-100 text-yellow-700
+                                       {% else %}bg-green-100 text-green-700{% endif %}">
+                                {{ task.priority }}
+                            </span>
+                            <span class="text-sm px-3 py-1 rounded-full font-medium bg-indigo-100 text-indigo-700">
+                                {{ task.category }}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-1">{{ task.description }}</p>
+                        {% if task.due_date %}
+                        <p class="text-sm text-gray-500 mt-1">
+                            Prazo: {{ task.due_date.strftime('%d/%m/%Y') }}
+                        </p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button @click="editTask({{ task.id }})"
+                            class="p-2 text-gray-400 hover:text-indigo-600 transition-colors">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                        </svg>
+                    </button>
+                    <button @click="deleteTask({{ task.id }})"
+                            class="p-2 text-gray-400 hover:text-red-600 transition-colors">
+                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Modal Adicionar Tarefa -->
+        <div x-show="showAddModal" 
+             class="fixed inset-0 bg-black/50 flex items-center justify-center"
+             x-transition>
+            <div class="bg-white rounded-2xl p-6 w-full max-w-lg"
+                 @click.away="showAddModal = false">
+                <h2 class="text-2xl font-bold mb-6">Nova Tarefa</h2>
+                <form action="{{ url_for('main.add_task') }}" method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                        <input type="text" name="title" required
+                               class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                        <textarea name="description" rows="3"
+                                  class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                            <select name="category" required
+                                    class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                {% for category in categories %}
+                                <option value="{{ category }}">{{ category }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                            <select name="priority" required
+                                    class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                {% for priority in priorities %}
+                                <option value="{{ priority }}">{{ priority }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Data de Entrega</label>
+                        <input type="date" name="due_date"
+                               class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" @click="show
+                        <button type="button" @click="showAddModal = false"
+                                class="px-6 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 font-medium text-gray-600">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-colors font-medium">
+                            Adicionar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal Editar Tarefa -->
+        <div x-show="showEditModal" 
+             class="fixed inset-0 bg-black/50 flex items-center justify-center"
+             x-transition>
+            <div class="bg-white rounded-2xl p-6 w-full max-w-lg"
+                 @click.away="showEditModal = false">
+                <h2 class="text-2xl font-bold mb-6">Editar Tarefa</h2>
+                <form :action="'/edit_task/' + currentTask?.id" method="POST" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Título</label>
+                        <input type="text" name="title" required x-model="currentTask?.title"
+                               class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Descrição</label>
+                        <textarea name="description" rows="3" x-model="currentTask?.description"
+                                  class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                            <select name="category" required x-model="currentTask?.category"
+                                    class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                {% for category in categories %}
+                                <option value="{{ category }}">{{ category }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Prioridade</label>
+                            <select name="priority" required x-model="currentTask?.priority"
+                                    class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                                {% for priority in priorities %}
+                                <option value="{{ priority }}">{{ priority }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Data de Entrega</label>
+                        <input type="date" name="due_date" x-model="currentTask?.due_date"
+                               class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div class="flex justify-end gap-3">
+                        <button type="button" @click="showEditModal = false"
+                                class="px-6 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 font-medium text-gray-600">
+                            Cancelar
+                        </button>
+                        <button type="submit" 
+                                class="bg-indigo-600 text-white px-6 py-3 rounded-xl hover:bg-indigo-700 transition-colors font-medium">
+                            Salvar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal Confirmar Exclusão -->
+        <div x-show="showDeleteModal" 
+             class="fixed inset-0 bg-black/50 flex items-center justify-center"
+             x-transition>
+            <div class="bg-white rounded-2xl p-6 w-full max-w-lg"
+                 @click.away="showDeleteModal = false">
+                <h2 class="text-2xl font-bold mb-4">Confirmar Exclusão</h2>
+                <p class="text-gray-600 mb-6">Tem certeza que deseja excluir esta tarefa? Esta ação não pode ser desfeita.</p>
+                <div class="flex justify-end gap-3">
+                    <button type="button" @click="showDeleteModal = false"
+                            class="px-6 py-3 border border-gray-200 rounded-xl hover:bg-gray-50 font-medium text-gray-600">
+                        Cancelar
+                    </button>
+                    <button @click="confirmDelete"
+                            class="bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 transition-colors font-medium">
+                        Excluir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
